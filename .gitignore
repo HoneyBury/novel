@@ -1,0 +1,10 @@
+﻿# Minimal ignore for novel project
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local virtual env (optional)
+.venv/
