@@ -10,6 +10,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$chaptersPerVolume = 100
 
 function ProjectPath {
     param([string[]]$Segments)
@@ -56,6 +57,43 @@ function Get-BeatLine {
     return '(未在 beat_sheet 中找到该章节，请先补充章节拍点。)'
 }
 
+function Get-VolumeNo {
+    param([int]$ChapterNo)
+    return [int](($ChapterNo - 1) / $chaptersPerVolume) + 1
+}
+
+function Get-VolumeRangeText {
+    param([int]$VolumeNo)
+    $start = (($VolumeNo - 1) * $chaptersPerVolume) + 1
+    $end = $VolumeNo * $chaptersPerVolume
+    return "$start-$end"
+}
+
+function Get-VolumeOutlineText {
+    param([int]$VolumeNo)
+    $dirPath = ProjectPath @('01_outline', 'volumes')
+    if (-not (Test-Path -LiteralPath $dirPath)) {
+        return ''
+    }
+
+    $prefix = ('volume_{0:D2}_' -f $VolumeNo)
+    $file = Get-ChildItem -LiteralPath $dirPath -File -Filter '*.md' |
+        Where-Object { $_.Name.StartsWith($prefix) } |
+        Sort-Object Name |
+        Select-Object -First 1
+
+    if ($null -eq $file) {
+        return ''
+    }
+    return Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8
+}
+
+function Get-VolumeMemoryText {
+    param([int]$VolumeNo)
+    $path = ProjectPath @('04_chapter_memory', 'volume_memory', ("volume_{0:D2}_memory.md" -f $VolumeNo))
+    return Read-FileOrEmpty -Path $path
+}
+
 function Get-CharacterSection {
     param(
         [string]$CardsText,
@@ -97,12 +135,18 @@ $projectBrief = Read-FileOrEmpty (ProjectPath @('00_meta', 'project_brief.md'))
 $styleGuide = Read-FileOrEmpty (ProjectPath @('00_meta', 'style_guide.md'))
 $outline = Read-FileOrEmpty (ProjectPath @('01_outline', 'high_level_outline.md'))
 $beatSheet = Read-FileOrEmpty (ProjectPath @('01_outline', 'beat_sheet.md'))
+$volumeIndex = Read-FileOrEmpty (ProjectPath @('01_outline', 'volumes', 'volume_index.md'))
+$volumeNo = Get-VolumeNo -ChapterNo $Chapter
+$volumeRange = Get-VolumeRangeText -VolumeNo $volumeNo
+$volumeOutline = Get-VolumeOutlineText -VolumeNo $volumeNo
+$volumeMemory = Get-VolumeMemoryText -VolumeNo $volumeNo
 $charCards = Read-FileOrEmpty (ProjectPath @('02_characters', 'character_cards.md'))
 $rollingMemory = Read-FileOrEmpty (ProjectPath @('04_chapter_memory', 'rolling_memory.md'))
 $canonFacts = Read-FileOrEmpty (ProjectPath @('04_chapter_memory', 'canon_facts.md'))
 $openQuestions = Read-FileOrEmpty (ProjectPath @('04_chapter_memory', 'open_questions.md'))
 $timelineLedger = Read-FileOrEmpty (ProjectPath @('04_chapter_memory', 'timeline_ledger.md'))
 $characterState = Read-FileOrEmpty (ProjectPath @('04_chapter_memory', 'character_state.md'))
+$factionMemory = Read-FileOrEmpty (ProjectPath @('04_chapter_memory', 'faction_memory.md'))
 $longTermConstraints = Read-FileOrEmpty (ProjectPath @('05_prompts', 'long_term_constraints.md'))
 $latestArcMemory = Get-LatestArcMemoryText -DirPath (ProjectPath @('04_chapter_memory'))
 $front3 = if ($Chapter -le 3) {
@@ -144,6 +188,15 @@ $styleGuide
 ## 高层大纲
 $outline
 
+## 分卷索引
+$volumeIndex
+
+## 当前卷信息（卷$("{0:D2}" -f $volumeNo) / $volumeRange）
+$(if ($volumeOutline.Trim().Length -gt 0) { $volumeOutline } else { '(未找到当前卷文件，请先创建 `01_outline/volumes/volume_XX_*.md`)' })
+
+## 当前卷记忆
+$(if ($volumeMemory.Trim().Length -gt 0) { $volumeMemory } else { '(未找到当前卷记忆，请先创建 `04_chapter_memory/volume_memory/volume_XX_memory.md`)' })
+
 ## 当前滚动记忆
 $rollingMemory
 
@@ -158,6 +211,9 @@ $timelineLedger
 
 ## 人物状态快照
 $characterState
+
+## 势力记忆（跨卷）
+$(if ($factionMemory.Trim().Length -gt 0) { $factionMemory } else { '(未找到势力记忆，请创建 `04_chapter_memory/faction_memory.md`)' })
 
 ## 长期约束协议
 $longTermConstraints
@@ -188,7 +244,8 @@ $content += @"
 1. 将本文件与 `05_prompts/chapter_prompt_template.md` 一起提交给模型。
 2. 若仍超长，先删减“项目简报”里的非关键背景，再删减人物卡的无关角色。
 3. 每章写作必须遵守 `05_prompts/long_term_constraints.md` 与 `07_quality/chapter_exit_gate.md`。
-4. 章节完成后立即更新 `rolling_memory.md`、`canon_facts.md`、`open_questions.md`、`timeline_ledger.md`、`character_state.md`。
+4. 章节完成后立即更新 `rolling_memory.md`、`canon_facts.md`、`open_questions.md`、`timeline_ledger.md`、`character_state.md`、`faction_memory.md`。
+5. 当章节进入新卷时，先维护 `01_outline/volumes/` 与 `04_chapter_memory/volume_memory/`。
 "@
 
 Set-Content -LiteralPath $outputPath -Value $content -Encoding UTF8

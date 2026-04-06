@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import List
 
+CHAPTERS_PER_VOLUME = 100
+
 
 def read_file_or_empty(path: Path) -> str:
     if path.exists():
@@ -27,6 +29,29 @@ def get_beat_line(beat_text: str, target_chapter: int) -> str:
         if pattern.match(line.strip()):
             return line
     return "(未在 beat_sheet 中找到该章节，请先补充章节拍点。)"
+
+
+def get_volume_no(chapter: int) -> int:
+    return ((chapter - 1) // CHAPTERS_PER_VOLUME) + 1
+
+
+def get_volume_chapter_range_text(volume_no: int) -> str:
+    start = (volume_no - 1) * CHAPTERS_PER_VOLUME + 1
+    end = volume_no * CHAPTERS_PER_VOLUME
+    return f"{start}-{end}"
+
+
+def get_volume_outline_text(project_root: Path, volume_no: int) -> str:
+    volume_dir = project_root / "01_outline" / "volumes"
+    candidates = sorted(volume_dir.glob(f"volume_{volume_no:02d}_*.md"))
+    if not candidates:
+        return ""
+    return candidates[0].read_text(encoding="utf-8")
+
+
+def get_volume_memory_text(project_root: Path, volume_no: int) -> str:
+    path = project_root / "04_chapter_memory" / "volume_memory" / f"volume_{volume_no:02d}_memory.md"
+    return read_file_or_empty(path)
 
 
 def split_h2_blocks(text: str) -> List[str]:
@@ -59,17 +84,23 @@ def get_character_section(cards_text: str, names: List[str]) -> str:
 
 def build_content(project_root: Path, chapter: int, character_names: List[str]) -> str:
     chapter_memory_dir = project_root / "04_chapter_memory"
+    volume_no = get_volume_no(chapter)
+    volume_chapter_range = get_volume_chapter_range_text(volume_no)
 
     project_brief = read_file_or_empty(project_root / "00_meta" / "project_brief.md")
     style_guide = read_file_or_empty(project_root / "00_meta" / "style_guide.md")
     outline = read_file_or_empty(project_root / "01_outline" / "high_level_outline.md")
     beat_sheet = read_file_or_empty(project_root / "01_outline" / "beat_sheet.md")
+    volume_index = read_file_or_empty(project_root / "01_outline" / "volumes" / "volume_index.md")
+    volume_outline = get_volume_outline_text(project_root, volume_no)
     char_cards = read_file_or_empty(project_root / "02_characters" / "character_cards.md")
     rolling_memory = read_file_or_empty(chapter_memory_dir / "rolling_memory.md")
     canon_facts = read_file_or_empty(chapter_memory_dir / "canon_facts.md")
     open_questions = read_file_or_empty(chapter_memory_dir / "open_questions.md")
     timeline_ledger = read_file_or_empty(chapter_memory_dir / "timeline_ledger.md")
     character_state = read_file_or_empty(chapter_memory_dir / "character_state.md")
+    volume_memory = get_volume_memory_text(project_root, volume_no)
+    faction_memory = read_file_or_empty(chapter_memory_dir / "faction_memory.md")
     long_term_constraints = read_file_or_empty(project_root / "05_prompts" / "long_term_constraints.md")
     latest_arc_memory = get_latest_arc_memory_text(chapter_memory_dir)
     front_3 = read_file_or_empty(chapter_memory_dir / "front_3_chapters_overview.md") if chapter <= 3 else ""
@@ -99,6 +130,15 @@ def build_content(project_root: Path, chapter: int, character_names: List[str]) 
         "## 高层大纲",
         outline.rstrip(),
         "",
+        "## 分卷索引",
+        volume_index.rstrip(),
+        "",
+        f"## 当前卷信息（卷{volume_no:02d} / {volume_chapter_range}）",
+        (volume_outline.rstrip() if volume_outline.strip() else "(未找到当前卷文件，请先创建 `01_outline/volumes/volume_XX_*.md`)"),
+        "",
+        "## 当前卷记忆",
+        (volume_memory.rstrip() if volume_memory.strip() else "(未找到当前卷记忆，请先创建 `04_chapter_memory/volume_memory/volume_XX_memory.md`)"),
+        "",
         "## 当前滚动记忆",
         rolling_memory.rstrip(),
         "",
@@ -113,6 +153,9 @@ def build_content(project_root: Path, chapter: int, character_names: List[str]) 
         "",
         "## 人物状态快照",
         character_state.rstrip(),
+        "",
+        "## 势力记忆（跨卷）",
+        (faction_memory.rstrip() if faction_memory.strip() else "(未找到势力记忆，请创建 `04_chapter_memory/faction_memory.md`)"),
         "",
         "## 长期约束协议",
         long_term_constraints.rstrip(),
@@ -133,7 +176,8 @@ def build_content(project_root: Path, chapter: int, character_names: List[str]) 
         "1. 将本文件与 `05_prompts/chapter_prompt_template.md` 一起提交给模型。",
         "2. 若仍超长，先删减“项目简报”里的非关键背景，再删减人物卡的无关角色。",
         "3. 每章写作必须遵守 `05_prompts/long_term_constraints.md` 与 `07_quality/chapter_exit_gate.md`。",
-        "4. 章节完成后立即更新 `rolling_memory.md`、`canon_facts.md`、`open_questions.md`、`timeline_ledger.md`、`character_state.md`。",
+        "4. 章节完成后立即更新 `rolling_memory.md`、`canon_facts.md`、`open_questions.md`、`timeline_ledger.md`、`character_state.md`、`faction_memory.md`。",
+        "5. 当章节进入新卷时，先维护 `01_outline/volumes/` 与 `04_chapter_memory/volume_memory/`。",
         "",
     ]
 

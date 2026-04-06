@@ -17,6 +17,25 @@
 【世界观约束】
 {{world_constraints}}
 
+【当前卷信息】
+- 当前卷：{{volume_no}} / {{volume_name}}
+- 当前卷章节区间：{{volume_chapter_range}}
+
+【卷首概览（读者向）】
+{{volume_overview}}
+
+【当前卷执行约束（AI向）】
+{{volume_ai_constraints}}
+
+【当前卷记忆】
+{{volume_memory}}
+
+【势力记忆（跨卷）】
+{{faction_memory}}
+
+【群像描写任务】
+{{ensemble_constraints}}
+
 【最近事件摘要（仅2-3章）】
 {{recent_events}}
 
@@ -36,3 +55,4 @@
 4. 新增连续性事实（若有）
 5. 未决问题更新建议（引用 OQ 编号，若无可写“无新增”）
 6. 出稿闸门自检（引用 `07_quality/chapter_exit_gate.md`，逐条给出“通过/未通过”）
+7. 势力记忆更新建议（引用 `FAC-xxx` 或写“无新增”）
