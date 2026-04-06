@@ -47,6 +47,18 @@ git add .
 git commit -m "chore: initialize novel workspace"
 ```
 
+## 发布快照（Tag `v.x.x`）
+- 当你推送形如 `v1.0.0` 的 tag 时，GitHub Actions 会自动：
+  - 打包当前仓库为 `novel-snapshot-v1.0.0.zip`
+  - 上传到该 tag 的 GitHub Release 资产
+  - 同时保留一份 workflow artifact
+
+示例：
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
 ## 目录说明
 - `00_meta/` 项目元信息与风格基线
 - `01_outline/` 主线大纲、章节拍点、场景卡
